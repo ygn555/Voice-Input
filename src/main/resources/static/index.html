@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音输入法 - Voice Input Service</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .upload-section {
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .file-info {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .result-section {
+            margin-top: 30px;
+        }
+
+        .result-box {
+            background: #f8f9ff;
+            border: 1px solid #e0e7ff;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 150px;
+            margin-bottom: 15px;
+        }
+
+        .result-text {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .status.pending { background: #fef3c7; color: #92400e; }
+        .status.processing { background: #dbeafe; color: #1e40af; }
+        .status.completed { background: #d1fae5; color: #065f46; }
+        .status.failed { background: #fee2e2; color: #991b1b; }
+
+        .history-list {
+            margin-top: 20px;
+        }
+
+        .history-item {
+            background: #f8f9ff;
+            border: 1px solid #e0e7ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            color: #dc2626;
+            padding: 10px;
+            background: #fee2e2;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 语音输入法</h1>
+            <p>上传音频文件，自动转换为文字</p>
+        </div>
+
+        <div class="card upload-section">
+            <h2>上传音频文件</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <p>点击或拖拽音频文件到此处</p>
+                <p style="font-size: 0.9em; color: #666; margin-top: 10px;">支持 MP3, WAV, M4A 等格式，最大 50MB</p>
+            </div>
+            <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+
+            <div class="file-info" id="fileInfo">
+                <p><strong>文件名：</strong><span id="fileName"></span></p>
+                <p><strong>文件大小：</strong><span id="fileSize"></span></p>
+            </div>
+
+            <button class="btn" id="uploadBtn" disabled>上传并识别</button>
+            <div id="uploadError" class="error" style="display: none;"></div>
+        </div>
+
+        <div class="card result-section" id="resultSection" style="display: none;">
+            <h2>识别结果</h2>
+            <div class="result-box">
+                <div class="result-text" id="resultText">识别中...</div>
+            </div>
+            <button class="btn" onclick="copyResult()">复制文本</button>
+        </div>
+
+        <div class="card">
+            <h2>历史记录</h2>
+            <div class="history-list" id="historyList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px;">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let selectedFile = null;
+        let currentAudioId = null;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory();
+            setupUpload();
+        });
+
+        // 设置上传功能
+        function setupUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileSelect(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            });
+
+            uploadBtn.addEventListener('click', uploadAndRecognize);
+        }
+
+        // 处理文件选择
+        function handleFileSelect(file) {
+            if (!file.type.startsWith('audio/')) {
+                showError('请选择音频文件');
+                return;
+            }
+
+            if (file.size > 50 * 1024 * 1024) {
+                showError('文件大小不能超过 50MB');
+                return;
+            }
+
+            selectedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('fileInfo').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+            hideError();
+        }
+
+        // 上传并识别
+        async function uploadAndRecognize() {
+            if (!selectedFile) return;
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '上传中...';
+
+            try {
+                // 上传文件
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const uploadResponse = await fetch(`${API_BASE}/audio/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadResult = await uploadResponse.json();
+
+                if (uploadResult.code !== 200) {
+                    throw new Error(uploadResult.message);
+                }
+
+                currentAudioId = uploadResult.data.id;
+
+                // 显示结果区域
+                document.getElementById('resultSection').style.display = 'block';
+                document.getElementById('resultText').textContent = '识别中，请稍候...';
+
+                // 提交识别任务
+                const asrResponse = await fetch(`${API_BASE}/asr/recognize/${currentAudioId}`, {
+                    method: 'POST'
+                });
+
+                const asrResult = await asrResponse.json();
+
+                if (asrResult.code !== 200) {
+                    throw new Error(asrResult.message);
+                }
+
+                // 显示识别结果
+                const recognizedText = asrResult.data.recognizedText || '未识别到内容';
+                document.getElementById('resultText').textContent = recognizedText;
+
+                // 刷新历史记录
+                loadHistory();
+
+            } catch (error) {
+                showError('操作失败: ' + error.message);
+                document.getElementById('resultText').textContent = '识别失败';
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '上传并识别';
+            }
+        }
+
+        // 加载历史记录
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/audio/list?page=0&size=10`);
+                const result = await response.json();
+
+                if (result.code !== 200) {
+                    throw new Error(result.message);
+                }
+
+                displayHistory(result.data.content);
+            } catch (error) {
+                document.getElementById('historyList').innerHTML =
+                    '<p style="text-align: center; color: #666;">加载失败</p>';
+            }
+        }
+
+        // 显示历史记录
+        function displayHistory(items) {
+            const historyList = document.getElementById('historyList');
+
+            if (items.length === 0) {
+                historyList.innerHTML = '<p style="text-align: center; color: #666;">暂无记录</p>';
+                return;
+            }
+
+            historyList.innerHTML = items.map(item => `
+                <div class="history-item" onclick="viewDetail(${item.id})">
+                    <div class="history-item-header">
+                        <strong>${item.fileName}</strong>
+                        <span class="status ${item.status.toLowerCase()}">${getStatusText(item.status)}</span>
+                    </div>
+                    <p style="color: #666; font-size: 0.9em;">${new Date(item.createdAt).toLocaleString()}</p>
+                    ${item.recognizedText ? `<p style="margin-top: 8px; color: #333;">${item.recognizedText.substring(0, 100)}${item.recognizedText.length > 100 ? '...' : ''}</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 查看详情
+        async function viewDetail(id) {
+            try {
+                const response = await fetch(`${API_BASE}/audio/${id}`);
+                const result = await response.json();
+
+                if (result.code !== 200) {
+                    throw new Error(result.message);
+                }
+
+                const item = result.data;
+                document.getElementById('resultSection').style.display = 'block';
+                document.getElementById('resultText').textContent = item.recognizedText || '未识别到内容';
+                currentAudioId = id;
+
+                // 滚动到结果区域
+                document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                alert('加载失败: ' + error.message);
+            }
+        }
+
+        // 复制结果
+        function copyResult() {
+            const text = document.getElementById('resultText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板');
+            });
+        }
+
+        // 工具函数
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'PENDING': '待识别',
+                'PROCESSING': '识别中',
+                'COMPLETED': '已完成',
+                'FAILED': '失败'
+            };
+            return statusMap[status] || status;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('uploadError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('uploadError').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
