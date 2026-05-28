@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  voice-input:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - QINIU_ACCESS_KEY=${QINIU_ACCESS_KEY}
+      - QINIU_SECRET_KEY=${QINIU_SECRET_KEY}
+      - QINIU_BUCKET=${QINIU_BUCKET}
+      - QINIU_DOMAIN=${QINIU_DOMAIN}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
