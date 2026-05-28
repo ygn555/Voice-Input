@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: voice-input-service
+
+  datasource:
+    url: jdbc:h2:file:./data/voiceinput
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+server:
+  port: 8080
+
+# 七牛云配置
+qiniu:
+  access-key: ${QINIU_ACCESS_KEY:your-access-key}
+  secret-key: ${QINIU_SECRET_KEY:your-secret-key}
+  bucket: ${QINIU_BUCKET:voice-input}
+  domain: ${QINIU_DOMAIN:your-domain.com}
+  asr:
+    url: https://ap-gate-z0.qiniuapi.com/asr/v1
+
+# 日志配置
+logging:
+  level:
+    com.qiniu.voiceinput: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
